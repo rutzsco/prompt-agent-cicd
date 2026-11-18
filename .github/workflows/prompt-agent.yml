@@ -1,0 +1,49 @@
+name: Prompt agent CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate agent JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Validate tool-free prompt agent payload
+        run: |
+          jq -es '
+            def nonblank: type == "string" and test("\\S");
+            length == 1 and (.[0] |
+              keys == ["definition", "name"] and
+              (.name | type == "string" and test("\\A[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\z")) and
+              (.definition |
+                keys == ["instructions", "kind", "model"] and
+                .kind == "prompt" and (.model | nonblank) and (.instructions | nonblank)))
+          ' agents/support-triage.json > /dev/null
+
+  staging:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: validate
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-agent.yml
+    with:
+      target: staging
+
+  production:
+    needs: staging
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-agent.yml
+    with:
+      target: production

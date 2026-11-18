@@ -52,10 +52,9 @@ Review the diff and open a pull request. Never commit secrets, customer data, or
    | --- | --- |
    | `AZURE_CLIENT_ID` | Application (client) ID for that environment's identity |
    | `AZURE_TENANT_ID` | Microsoft Entra tenant ID |
-   | `AZURE_SUBSCRIPTION_ID` | Subscription ID containing the target project |
    | `FOUNDRY_PROJECT_ENDPOINT` | Target project endpoint, e.g. `https://my-foundry.services.ai.azure.com/api/projects/staging` |
 
-   The workflow targets Azure public cloud and expects a `services.ai.azure.com` project endpoint. For a private project, use a runner with network access to that endpoint.
+   The workflow targets Azure public cloud and calls the project data plane directly, without selecting a subscription. For a private project, adapt the workflow to use a runner with network access to the project endpoint.
 
 ## 4. Promote a change
 
