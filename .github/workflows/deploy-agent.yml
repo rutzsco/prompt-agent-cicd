@@ -1,0 +1,39 @@
+name: Deploy prompt agent
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: Create agent version
+        shell: bash
+        env:
+          PROJECT_ENDPOINT: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
+        run: |
+          endpoint=${PROJECT_ENDPOINT%/}
+          if [[ ! "$endpoint" =~ ^https://[a-zA-Z0-9-]+\.services\.ai\.azure\.com/api/projects/[a-zA-Z0-9_-]+$ ]]; then
+            echo 'FOUNDRY_PROJECT_ENDPOINT must be a public-cloud Foundry project endpoint.' >&2
+            exit 1
+          fi
+          version=$(az rest --method post \
+            --url "${endpoint}/agents?api-version=v1" \
+            --resource https://ai.azure.com --headers Content-Type=application/json \
+            --body @agents/support-triage.json --output json |
+            jq -er '.versions.latest.version | strings | select(length > 0)')
+          printf 'Created Foundry agent version %s from commit %s\n' "$version" "$GITHUB_SHA"
